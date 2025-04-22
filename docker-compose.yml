@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=mongodb+srv://greatstack:Paperpensbooks1*@cluster0.2jpbpap.mongodb.net/todo-app
+    #volumes:
+     # - .:/app
