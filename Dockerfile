@@ -47,8 +47,18 @@ RUN echo "Checking environment variables..." && \
 
 # Build the app with increased memory limit and verbose logging
 ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+# Clean npm cache and install dependencies again
+RUN npm cache clean --force && \
+    rm -rf node_modules && \
+    npm install
+
+# Run the build with detailed error output
 RUN echo "Starting build process..." && \
-    npm run build --verbose || (echo "Build failed. Check the logs above for errors." && exit 1)
+    NODE_ENV=production NEXT_DEBUG=1 npm run build --verbose || \
+    (echo "Build failed. Showing detailed webpack errors:" && \
+     NEXT_DEBUG=1 npm run build && \
+     exit 1)
 
 # Set runtime environment variables
 ENV FIREBASE_ADMIN_PROJECT_ID=$FIREBASE_ADMIN_PROJECT_ID

@@ -17,11 +17,16 @@
     "firebase-admin": "^12.0.0",
     "react-firebase-hooks": "^5.1.1",
     "react-toastify": "^10.0.4",
-    "axios": "^1.6.7"
+    "axios": "^1.6.7",
+    "http": "^0.0.1-security",
+    "url": "^0.11.3"
   },
   "devDependencies": {
     "autoprefixer": "^10.0.1",
     "postcss": "^8",
-    "tailwindcss": "^3.3.0"
+    "tailwindcss": "^3.3.0",
+    "@types/react": "^18.2.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   }
 }
