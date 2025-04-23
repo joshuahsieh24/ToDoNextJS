@@ -1,11 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
-  transpilePackages: ['undici'],
-  experimental: {
-    esmExternals: false
-  },
+  // Add external packages configuration at root level, not in experimental
+  serverExternalPackages: ['undici'],
   // Disable image optimization if not needed
   images: {
     unoptimized: true,
