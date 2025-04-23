@@ -29,6 +29,13 @@ const nextConfig = {
     config.module.rules.push({
       test: /node_modules\/undici\/.*\.js$/,
       type: 'javascript/auto',
+      use: {
+        loader: 'babel-loader',
+        options: {
+          presets: ['@babel/preset-env'],
+          plugins: ['@babel/plugin-proposal-private-property-in-object']
+        }
+      }
     });
 
     return config;

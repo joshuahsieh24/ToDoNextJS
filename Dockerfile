@@ -7,7 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including dev dependencies)
-RUN npm install
+RUN npm install && \
+    npm install --save-dev @babel/core @babel/preset-env @babel/plugin-proposal-private-property-in-object babel-loader
 
 # Copy source files
 COPY . .
