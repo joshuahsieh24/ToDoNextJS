@@ -2,6 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  transpilePackages: ['undici'],
+  experimental: {
+    esmExternals: false
+  },
   // Disable image optimization if not needed
   images: {
     unoptimized: true,
@@ -24,4 +28,6 @@ const nextConfig = {
 
     return config;
   },
-} 
+}
+
+module.exports = nextConfig; 
