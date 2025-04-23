@@ -5,7 +5,9 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-RUN npm ci
+
+# Install all dependencies (including dev dependencies)
+RUN npm install
 
 # Copy source files
 COPY . .
@@ -26,7 +28,7 @@ ENV PORT=3000
 
 # Copy package files and install production dependencies
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --only=production
 
 # Copy built application from builder
 COPY --from=builder /app/.next/standalone ./
