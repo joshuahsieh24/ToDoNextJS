@@ -3,25 +3,43 @@ const { parse } = require('url');
 const next = require('next');
 
 const dev = process.env.NODE_ENV !== 'production';
-const app = next({ dev });
+const hostname = process.env.HOSTNAME || 'localhost';
+const port = parseInt(process.env.PORT || '3000', 10);
+
+// Validate required environment variables
+const requiredEnvVars = ['MONGODB_URI', 'FIREBASE_API_KEY'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`Error: Environment variable ${envVar} is required but not set.`);
+    process.exit(1);
+  }
+}
+
+// Create the Next.js app
+const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-// Get port from environment variable or default to 10000 (Render's default)
-const port = process.env.PORT || 10000;
-
 app.prepare().then(() => {
-    const server = createServer((req, res) => {
-        const parsedUrl = parse(req.url, true);
-        handle(req, res, parsedUrl);
+  createServer(async (req, res) => {
+    try {
+      const parsedUrl = parse(req.url, true);
+      await handle(req, res, parsedUrl);
+    } catch (err) {
+      console.error('Error occurred handling', req.url, err);
+      res.statusCode = 500;
+      res.end('Internal Server Error');
+    }
+  })
+    .once('error', (err) => {
+      console.error(err);
+      process.exit(1);
+    })
+    .listen(port, hostname, () => {
+      console.log(
+        `> Ready on http://${hostname}:${port} - env ${process.env.NODE_ENV}`
+      );
     });
-
-    // Set higher timeout values to prevent 502 errors
-    server.keepAliveTimeout = 120000; // 120 seconds
-    server.headersTimeout = 120000; // 120 seconds
-
-    // Listen on all network interfaces (0.0.0.0)
-    server.listen(port, '0.0.0.0', (err) => {
-        if (err) throw err;
-        console.log(`> Ready on http://0.0.0.0:${port}`);
-    });
+}).catch((err) => {
+  console.error('Error occurred starting server:', err);
+  process.exit(1);
 }); 

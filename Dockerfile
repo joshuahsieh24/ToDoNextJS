@@ -1,89 +1,45 @@
-FROM node:20-slim
+# Stage 1: Builder
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files first for better caching
+# Copy package files
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies with verbose logging
-RUN npm install --verbose
-
-# Copy environment file
-#COPY .env.production .env.production
-
-# Copy everything else
+# Copy source files
 COPY . .
 
-# Set environment so Next.js uses the right env file
+# Build the application
+RUN npm run build
+
+# Stage 2: Runner
+FROM node:18-alpine AS runner
+
+WORKDIR /app
+
+# Set environment variables
 ENV NODE_ENV=production
-ENV PORT=10000
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
-# Pass build-time arguments
-ARG FIREBASE_ADMIN_PROJECT_ID
-ARG FIREBASE_ADMIN_CLIENT_EMAIL
-ARG FIREBASE_ADMIN_PRIVATE_KEY
-ARG NEXT_PUBLIC_FIREBASE_API_KEY
-ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
-ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-ARG NEXT_PUBLIC_FIREBASE_APP_ID
-ARG MONGODB_URI
+# Copy package files and install production dependencies
+COPY package*.json ./
+RUN npm ci --only=production
 
-# Set build-time environment variables for Next.js build
-ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY
-ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID
-ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
+# Copy built application from builder
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/server.js ./server.js
 
-# Debug: Print environment variables (excluding sensitive ones)
-RUN echo "Checking environment variables..." && \
-    echo "NODE_ENV: $NODE_ENV" && \
-    echo "PORT: $PORT" && \
-    echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID: $NEXT_PUBLIC_FIREBASE_PROJECT_ID" && \
-    echo "MongoDB URI exists: $(if [ -n "$MONGODB_URI" ]; then echo 'yes'; else echo 'no'; fi)"
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/api/health || exit 1
 
-# Build the app with increased memory limit and verbose logging
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Expose port
+EXPOSE ${PORT}
 
-# Clean npm cache and install dependencies again
-RUN npm cache clean --force && \
-    rm -rf node_modules && \
-    npm install
-
-# Run the build with detailed error output
-RUN echo "Starting build process..." && \
-    NODE_ENV=production NEXT_DEBUG=1 npm run build --verbose || \
-    (echo "Build failed. Showing detailed webpack errors:" && \
-     NEXT_DEBUG=1 npm run build && \
-     exit 1)
-
-# Set runtime environment variables
-ENV FIREBASE_ADMIN_PROJECT_ID=$FIREBASE_ADMIN_PROJECT_ID
-ENV FIREBASE_ADMIN_CLIENT_EMAIL=$FIREBASE_ADMIN_CLIENT_EMAIL
-ENV FIREBASE_ADMIN_PRIVATE_KEY=$FIREBASE_ADMIN_PRIVATE_KEY
-ENV MONGODB_URI=$MONGODB_URI
-
-# Create and configure the startup script
-RUN echo '#!/bin/sh\n\
-echo "=== Starting Application ==="\n\
-echo "Checking environment variables..."\n\
-echo "NODE_ENV: $NODE_ENV"\n\
-echo "PORT: $PORT"\n\
-echo "Checking required variables:"\n\
-if [ -z "$MONGODB_URI" ]; then\n\
-  echo "Error: MONGODB_URI is not set"\n\
-  exit 1\n\
-fi\n\
-if [ -z "$FIREBASE_ADMIN_PROJECT_ID" ]; then\n\
-  echo "Error: FIREBASE_ADMIN_PROJECT_ID is not set"\n\
-  exit 1\n\
-fi\n\
-echo "Starting application on port $PORT..."\n\
-exec node server.js\n\
-' > /app/start.sh && chmod +x /app/start.sh
-
-EXPOSE $PORT
-CMD ["/app/start.sh"]
+# Start the application
+CMD ["node", "server.js"]

@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Add external packages configuration at root level, not in experimental
-  serverExternalPackages: ['undici'],
+  experimental: {
+    // Use proper experimental features
+    serverActions: true
+  },
   // Disable image optimization if not needed
   images: {
     unoptimized: true,
@@ -22,6 +24,12 @@ const nextConfig = {
         url: false,
       };
     }
+
+    // Add rule for handling undici
+    config.module.rules.push({
+      test: /node_modules\/undici\/.*\.js$/,
+      type: 'javascript/auto',
+    });
 
     return config;
   },
