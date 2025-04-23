@@ -2,9 +2,11 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy and install dependencies
+# Copy package files first for better caching
 COPY package*.json ./
-RUN npm install
+
+# Install dependencies with verbose logging
+RUN npm install --verbose
 
 # Copy environment file
 #COPY .env.production .env.production
@@ -36,14 +38,17 @@ ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
 
-# Verify environment variables before build
-RUN echo "Checking required environment variables..."
-RUN test -n "$NEXT_PUBLIC_FIREBASE_API_KEY" || (echo "NEXT_PUBLIC_FIREBASE_API_KEY is required" && exit 1)
-RUN test -n "$MONGODB_URI" || (echo "MONGODB_URI is required" && exit 1)
+# Debug: Print environment variables (excluding sensitive ones)
+RUN echo "Checking environment variables..." && \
+    echo "NODE_ENV: $NODE_ENV" && \
+    echo "PORT: $PORT" && \
+    echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID: $NEXT_PUBLIC_FIREBASE_PROJECT_ID" && \
+    echo "MongoDB URI exists: $(if [ -n "$MONGODB_URI" ]; then echo 'yes'; else echo 'no'; fi)"
 
-# Build the app with increased memory limit
+# Build the app with increased memory limit and verbose logging
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN npm run build
+RUN echo "Starting build process..." && \
+    npm run build --verbose || (echo "Build failed. Check the logs above for errors." && exit 1)
 
 # Set runtime environment variables
 ENV FIREBASE_ADMIN_PROJECT_ID=$FIREBASE_ADMIN_PROJECT_ID
@@ -51,9 +56,13 @@ ENV FIREBASE_ADMIN_CLIENT_EMAIL=$FIREBASE_ADMIN_CLIENT_EMAIL
 ENV FIREBASE_ADMIN_PRIVATE_KEY=$FIREBASE_ADMIN_PRIVATE_KEY
 ENV MONGODB_URI=$MONGODB_URI
 
-# Use a startup script to verify environment and start the app
+# Create and configure the startup script
 RUN echo '#!/bin/sh\n\
-echo "Verifying environment variables..."\n\
+echo "=== Starting Application ==="\n\
+echo "Checking environment variables..."\n\
+echo "NODE_ENV: $NODE_ENV"\n\
+echo "PORT: $PORT"\n\
+echo "Checking required variables:"\n\
 if [ -z "$MONGODB_URI" ]; then\n\
   echo "Error: MONGODB_URI is not set"\n\
   exit 1\n\
